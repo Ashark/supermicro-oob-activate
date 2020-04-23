@@ -1,0 +1,42 @@
+#!/bin/bash
+# supermicro-oob-activate
+#
+# This script will autogenerate and activate a SFT-OOB-LIC key for your SuperMicro server,
+# so you can perform out-of-band bios update with supermicro-update-manager.
+
+# You should get a BMC mac. You can go to the ipmi web page, but it is inconvenient, because you want to make all things in place via your terminal.
+# supermicro-update-manager has a function CheckAssetInfo, which will show you the IPMI mac. But unfortunately, you need OOB node product key to be
+# already activated for using this function. However, there is another way how you can get it - via ipmitool.
+
+IPMI_HOST=$1
+IPMI_USER="ADMIN"
+IPMI_PASSWORD_FILE="~/.private/ipmi-pw.txt"
+
+BMC_MAC=$(ipmitool -I lanplus -H $IPMI_HOST -U $IPMI_USER -f $IPMI_PASSWORD_FILE lan print | grep "MAC Address" | sed "s/MAC Address             : //")
+# -I lanplus is required for some motherboards. See https://www.supermicro.com/support/faqs/faq.cfm?faq=23196
+
+LIC_KEY=$(echo -n $BMC_MAC | xxd -r -p | openssl dgst -sha1 -mac HMAC -macopt hexkey:8544E3B47ECA58F9583043F8 | awk '{print $2}' | cut -c 1-24  | fold -w4 | paste -sd'-' -)
+
+# echo Checking licence keys before setting licence key:
+# supermicro-update-manager --no_banner -i $IPMI_HOST -u $IPMI_USER -f $IPMI_PASSWORD_FILE -c QueryProductKey
+echo Setting licence key:
+supermicro-update-manager --no_banner -i $IPMI_HOST -u $IPMI_USER -f $IPMI_PASSWORD_FILE -c ActivateProductKey --key $LIC_KEY
+# echo Checking licence keys after setting licence key:
+# supermicro-update-manager --no_banner -i $IPMI_HOST -u $IPMI_USER -f $IPMI_PASSWORD_FILE -c QueryProductKey
+
+
+# Usage:
+# $ ./supermicro-oob-activate ipmi.yourdomain.com
+# Checking licence keys before setting licence key:
+# Number of product keys: 0
+# Setting licence key:
+# Node product key (OOB) is activated for ipmi.yourdomain.com.
+# Checking licence keys after setting licence key:
+# [0] OOB
+# Number of product keys: 1
+
+# Legality:
+# This is not explicitly allowed by SuperMicro, but in reality, nobody cares, because nowadays REDFISH allows much of the functionality of SuperMicro update manager for free,
+# (including bios update). This thing is only useful for the old generation of servers without REDFISH.
+# The algorithm was kindly provided by white hat hacker Peter Kleissner.
+# See this if you are interested: https://peterkleissner.com/2018/05/27/reverse-engineering-supermicro-ipmi/
