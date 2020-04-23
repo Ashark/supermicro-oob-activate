@@ -10,7 +10,7 @@
 
 IPMI_HOST=$1
 IPMI_USER="ADMIN"
-IPMI_PASSWORD_FILE="~/.private/ipmi-pw.txt"
+IPMI_PASSWORD_FILE="$HOME/.private/ipmi-pw.txt"
 
 BMC_MAC=$(ipmitool -I lanplus -H $IPMI_HOST -U $IPMI_USER -f $IPMI_PASSWORD_FILE lan print | grep "MAC Address" | sed "s/MAC Address             : //")
 # -I lanplus is required for some motherboards. See https://www.supermicro.com/support/faqs/faq.cfm?faq=23196
